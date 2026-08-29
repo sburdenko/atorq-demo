@@ -2,53 +2,120 @@
 <html lang="en-us">
   <head>
     <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Unity Web Player | Atorq</title>
-    <link rel="shortcut icon" href="TemplateData/favicon.ico">
-    <link rel="stylesheet" href="TemplateData/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+    <title>Atorq</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #10141c;
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+
+      /* The game is portrait-only. The canvas is held at the phone's aspect and fitted to whatever
+         window it lands in, so a desktop browser shows a phone rather than stretching a portrait
+         layout across a landscape frame. */
+      #shell {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #unity-canvas {
+        display: block;
+        background: #10141c;
+        border-radius: 10px;
+        /* Sized in script: aspect-ratio alone cannot also cap BOTH axes on every browser. */
+      }
+
+      #unity-loading-bar {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        display: none;
+        text-align: center;
+        color: #8c9bb2;
+        font-size: 14px;
+        letter-spacing: 2px;
+      }
+
+      #unity-progress-bar-empty {
+        width: 220px;
+        height: 6px;
+        margin: 14px auto 0;
+        background: #222a38;
+        border-radius: 3px;
+        overflow: hidden;
+      }
+
+      #unity-progress-bar-full {
+        width: 0%;
+        height: 100%;
+        background: #ffbe3c;
+        transition: width 0.2s;
+      }
+
+      #unity-warning {
+        position: fixed;
+        left: 50%;
+        top: 12px;
+        transform: translateX(-50%);
+        z-index: 10;
+        color: #fff;
+      }
+    </style>
   </head>
   <body>
-    <div id="unity-container" class="unity-desktop">
-      <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
-      <div id="unity-loading-bar">
-        <div id="unity-logo"></div>
-        <div id="unity-progress-bar-empty">
-          <div id="unity-progress-bar-full"></div>
-        </div>
-      </div>
-      <div id="unity-warning"> </div>
-      <div id="unity-footer">
-        <div id="unity-logo-title-footer"></div>
-        <div id="unity-fullscreen-button"></div>
-        <div id="unity-build-title">Atorq</div>
-      </div>
+    <div id="shell">
+      <canvas id="unity-canvas" tabindex="-1"></canvas>
     </div>
+
+    <div id="unity-loading-bar">
+      LOADING
+      <div id="unity-progress-bar-empty"><div id="unity-progress-bar-full"></div></div>
+    </div>
+    <div id="unity-warning"></div>
+
     <script>
       var canvas = document.querySelector("#unity-canvas");
 
-      // Shows a temporary message banner/ribbon for a few seconds, or
-      // a permanent error message on top of the canvas if type=='error'.
-      // If type=='warning', a yellow highlight color is used.
-      // Modify or remove this function to customize the visually presented
-      // way that non-critical warnings and error messages are presented to the
-      // user.
+      // iPhone X. Every screen the game is reviewed on is close enough to this that one aspect is
+      // simpler than a responsive canvas, and the UI is authored against it.
+      var ASPECT = 1125 / 2436;
+
+      function fitCanvas() {
+        var w = window.innerWidth;
+        var h = window.innerHeight;
+        var width = Math.min(w, h * ASPECT);
+        var height = width / ASPECT;
+
+        // Backing store follows the CSS size times DPR, so text stays sharp on a retina screen
+        // instead of being upscaled from a 1x buffer.
+        var dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.style.width = width + "px";
+        canvas.style.height = height + "px";
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+      }
+
+      fitCanvas();
+      window.addEventListener("resize", fitCanvas);
+
       function unityShowBanner(msg, type) {
-        var warningBanner = document.querySelector("#unity-warning");
-        function updateBannerVisibility() {
-          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
-        }
+        var banner = document.querySelector("#unity-warning");
         var div = document.createElement('div');
         div.innerHTML = msg;
-        warningBanner.appendChild(div);
-        if (type == 'error') div.style = 'background: red; padding: 10px;';
+        banner.appendChild(div);
+        if (type == 'error') div.style = 'background: #c0392b; padding: 10px;';
         else {
-          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
-          setTimeout(function() {
-            warningBanner.removeChild(div);
-            updateBannerVisibility();
-          }, 5000);
+          if (type == 'warning') div.style = 'background: #d4a017; padding: 10px;';
+          setTimeout(function () { banner.removeChild(div); }, 5000);
         }
-        updateBannerVisibility();
       }
 
       var buildUrl = "Build";
@@ -63,50 +130,7 @@
         productName: "Atorq",
         productVersion: "0.9.0",
         showBanner: unityShowBanner,
-        // errorHandler: function(err, url, line) {
-        //    alert("error " + err + " occurred at line " + line);
-        //    // Return 'true' if you handled this error and don't want Unity
-        //    // to process it further, 'false' otherwise.
-        //    return true;
-        // },
       };
-
-      // By default, Unity keeps WebGL canvas render target size matched with
-      // the DOM size of the canvas element (scaled by window.devicePixelRatio)
-      // Set this to false if you want to decouple this synchronization from
-      // happening inside the engine, and you would instead like to size up
-      // the canvas DOM size and WebGL render target sizes yourself.
-      // config.matchWebGLToCanvasSize = false;
-
-      // If you would like all file writes inside Unity Application.persistentDataPath
-      // directory to automatically persist so that the contents are remembered when
-      // the user revisits the site the next time, uncomment the following line:
-      // config.autoSyncPersistentDataPath = true;
-      // This autosyncing is currently not the default behavior to avoid regressing
-      // existing user projects that might rely on the earlier manual
-      // JS_FileSystem_Sync() behavior, but in future Unity version, this will be
-      // expected to change.
-
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        // Mobile device style: fill the whole browser client area with the game canvas:
-
-        var meta = document.createElement('meta');
-        meta.name = 'viewport';
-        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
-        document.getElementsByTagName('head')[0].appendChild(meta);
-        document.querySelector("#unity-container").className = "unity-mobile";
-        canvas.className = "unity-mobile";
-
-        // To lower canvas resolution on mobile devices to gain some
-        // performance, uncomment the following line:
-        // config.devicePixelRatio = 1;
-
-
-      } else {
-        // Desktop style: Render the game canvas in a window that can be maximized to fullscreen:
-        canvas.style.width = "960px";
-        canvas.style.height = "600px";
-      }
 
       document.querySelector("#unity-loading-bar").style.display = "block";
 
@@ -115,19 +139,14 @@
       script.onload = () => {
         createUnityInstance(canvas, config, (progress) => {
           document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
-              }).then((unityInstance) => {
-                document.querySelector("#unity-loading-bar").style.display = "none";
-                document.querySelector("#unity-fullscreen-button").onclick = () => {
-                  unityInstance.SetFullscreen(1);
-                };
-
-              }).catch((message) => {
-                alert(message);
-              });
-            };
-
+        }).then(() => {
+          document.querySelector("#unity-loading-bar").style.display = "none";
+          fitCanvas();
+        }).catch((message) => {
+          alert(message);
+        });
+      };
       document.body.appendChild(script);
-
     </script>
   </body>
 </html>
